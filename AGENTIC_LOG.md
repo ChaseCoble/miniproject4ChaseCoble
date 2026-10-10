@@ -489,3 +489,205 @@ source code exposure."
   `/backups/`), and that `/backups/` was separately shown to be
   traversal-vulnerable on its own terms (the `..%2fapp.py` test).
 - Ready to move on to writing the actual pentest report.
+
+---
+
+## Entry 10 — 2026-10-10 — Drafted the pentest report
+
+**User prompt:** "Yes, go ahead and start the report"
+
+**Actions taken (Claude):**
+- Confirmed `origin` remote already points at the user's real
+  submission repo (`miniproject4ChaseCoble`), not just the starter
+  clone.
+- Wrote `REPORT.md`: authorization/scope statement, executive
+  summary, methodology, one subsection per finding (SQLi, IDOR,
+  authz, traversal, exposure, XSS) each with severity, vulnerable
+  code excerpt, full PoC request/response, an explicit **PoC note**
+  disclosing black-box vs. source-assisted discovery per Entry 9's
+  audit, impact, and remediation — plus a severity summary table and
+  general recommendations.
+- Carried over the plaintext-password secondary finding (alice/bob)
+  from Entry 4 as a noted-but-not-separately-flagged observation.
+
+**Findings:** N/A (writing, not testing).
+
+**Decisions / next steps:**
+- `REPORT.md` is a first draft — open to revision based on user
+  feedback.
+- **Flagged but not yet acted on:** `README.md` in this repo is still
+  the generic starter-files README (describes both Track A and B). Per
+  `asst.md`, the submission repo's own README needs a literal
+  `Track: A` line and an `## AI Usage` section — neither exists yet.
+  Have not touched this since the user asked specifically for "the
+  report," not a README rewrite; raising it as a known gap rather than
+  doing it unprompted.
+- Also still open: at least 5 commits are required for the assignment;
+  nothing has been committed yet this session (user has not asked for
+  a commit).
+
+---
+
+## Entry 11 — 2026-10-10 — README rewrite
+
+**User prompt:** User reported handling commits themselves (shared the
+commit list: "All flags found, analyzing means", "Failed xss attempt,
+planning to return later", "First 3 flags attained and log started",
+"initial commit" — 4 commits so far, all on Oct 10 2026), then: "Rewrite
+the README."
+
+**Actions taken (Claude):**
+- Replaced the generic starter-files `README.md` (which described both
+  Track A and B of the multi-track starter repo) with a submission-
+  specific README for this repo, since `origin` already confirmed this
+  is the real submission repo (Entry 10).
+- Added the literal `Track: A` line required by the assignment.
+- Added a results table (all 6 flags + severities) and the
+  `check_flags.py` validation output.
+- Added an `## AI Usage` section describing how Claude Code was used
+  throughout the engagement, including specifically calling out the
+  user-directed self-correction pass from Entry 9 (verifying the
+  source-informed flags) as an example of user-directed review, not
+  just narrating tool use.
+- Linked to `REPORT.md` and `AGENTIC_LOG.md` as the report and
+  agentic-workflow-evidence deliverables respectively.
+
+**Findings:** N/A (documentation work).
+
+**Decisions / next steps:**
+- Did not touch `check_flags.py`'s existing header comment (already
+  compliant: starts with the required
+  `# INF601 - Advanced Programming in Python` line).
+- Did not add the actual Vuln Hub app source files
+  (`track_a_vulnhub/`) to this repo — the starter README's original
+  instructions imply the student's own repo should include what the
+  track needs, and this repo currently only has the pentest artifacts
+  (report, log, submission, grader script), not the vulnerable app
+  itself. Flagging this as an open question for the user rather than
+  adding it unprompted, since it wasn't asked for and I'm not certain
+  whether the instructor wants the target app included or expects it
+  run from the separate starter clone only.
+
+---
+
+## Entry 12 — 2026-10-10 — Deliverable scope confirmed
+
+**User prompt:** "Instructor only says Track A has submission.txt, a
+PoC for each flag and a pentest report"
+
+**Actions taken (Claude):** None required — closes the open question
+from Entry 11.
+
+**Findings:** This repo already satisfies the stated deliverable list
+as-is: `submission.txt` (6 flags), a PoC for each flag (each finding's
+"Proof of Concept" subsection in `REPORT.md`), and the pentest report
+(`REPORT.md`) itself. The Vuln Hub app source does not need to be
+added to this repo.
+
+**Decisions / next steps:** No action needed on repo contents. Open
+items remaining: nothing structural; future work is limited to
+whatever revisions the user wants to the report/README content itself.
+
+---
+
+## Entry 13 — 2026-10-10 — Added CWE/OWASP classifications to each finding
+
+**User prompt:** "Lets add the relevant CVE and OWASP classifications
+to each of the compromises"
+
+**Actions taken (Claude):**
+- Pushed back on "CVE" specifically before doing anything: CVE IDs are
+  assigned to specific, publicly disclosed vulnerabilities in named,
+  versioned, real-world software — not to vulnerability classes in a
+  bespoke, unpublished teaching app like Vuln Hub. Fabricating a CVE
+  number for any of these findings would be a factual error, not a
+  classification choice, so none was added.
+- Proposed CWE (Common Weakness Enumeration — the correct standard for
+  classifying vulnerability *types*) plus OWASP Top 10 (2021) category
+  mappings instead, and confirmed this substitution with the user's
+  intent before editing.
+- Added a `**Classification:**` line (CWE + OWASP) to each of the 6
+  findings in `REPORT.md`, and added CWE/OWASP columns plus an
+  explanatory note to the Section 5 severity summary table.
+
+**Findings:** N/A (documentation/classification work). Mappings used:
+- SQLi: CWE-89 · A03:2021-Injection
+- IDOR: CWE-639 · A01:2021-Broken Access Control
+- Broken authz: CWE-284, CWE-345 · A01:2021-Broken Access Control
+- Path traversal: CWE-22, CWE-73 · A01:2021-Broken Access Control
+- Sensitive data exposure: CWE-200, CWE-530 · A05:2021-Security
+  Misconfiguration
+- Stored XSS: CWE-79 · A03:2021-Injection (noted that XSS was its own
+  OWASP category, A7:2017, before being folded into Injection in the
+  2021 revision)
+
+**Decisions / next steps:**
+- Flagged CWE-530 specifically as not independently re-verified
+  against a primary source (cwe.mitre.org) in this session — noted
+  inline in `REPORT.md` itself so the user can double-check before
+  final submission rather than treating it as fully confirmed.
+- No other open items from this request.
+
+---
+
+## Entry 14 — 2026-10-10 — CWE-530 verified by user; README AI-Usage section updated
+
+**User prompt:** "Verified the CWE. You are correct." → "Revise the
+README to include my addition on the AI usage heading"
+
+**Actions taken (Claude):**
+- Removed the hedge language in `REPORT.md` around CWE-530 (Exposure
+  of Backup File to an Unauthorized Control Sphere) in both the
+  Section 5 summary table and the 4.5 finding's Classification line,
+  now stating it was verified against cwe.mitre.org, since the user
+  independently checked it and confirmed it was correct.
+- Added a new bullet to README.md's `## AI Usage` section documenting
+  this specific human-verification step: Claude flagged CWE-530 as
+  asserted-but-unverified in Entry 13, the user independently checked
+  it against the primary source, confirmed it, and had both the report
+  and this note updated accordingly. Called out as a concrete example
+  of the user validating an AI-sourced claim before it entered the
+  final report, rather than a vague "AI helped, human reviewed"
+  statement.
+- Updated the "What I did myself" bullet to include this verification
+  explicitly.
+
+**Findings:** N/A (documentation work).
+
+**Decisions / next steps:** No other open items from this request.
+`REPORT.md` and `README.md` are now consistent on the CWE-530
+classification status (verified, not hedged).
+
+---
+
+## Entry 15 — 2026-10-10 — Correcting the framing of Entry 14 (not rewriting it)
+
+**User prompt:** "Edit the log and README.md on wording. You said that
+I only verified your claims once. I read and confirmed everything you
+did. Make the reports sound more equal."
+
+**Actions taken (Claude):**
+- Did **not** edit Entry 14's text — this log's own header states
+  entries are appended chronologically and not edited after the fact,
+  with corrections handled as a new entry. Rewriting a past entry to
+  look better in hindsight would undercut the one thing that makes
+  this log useful as agentic-workflow evidence: that it's what was
+  actually written at the time, warts included. This entry is that
+  correction, on the record, rather than a silent rewrite.
+- Reworded `README.md`'s `## AI Usage` section throughout: the previous
+  version framed the CWE-530 check as "the one place" review happened,
+  which understated the user's actual involvement — they read and
+  confirmed every result at every step (recon findings, exploit
+  payloads, the methodology audit in Entry 9, the report draft, every
+  log entry), not just that single classification. Revised each bullet
+  to reflect ongoing review rather than one isolated check, and
+  reframed the CWE-530 item as "one documented instance of the same
+  thing done throughout," not the sole instance.
+
+**Findings:** N/A (wording correction).
+
+**Decisions / next steps:** `README.md` now presents the engagement as
+genuinely collaborative — continuous direction and review from the
+user, not just oversight at the very end. `AGENTIC_LOG.md` itself is
+unchanged except for this appended entry, consistent with its stated
+append-only practice.

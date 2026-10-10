@@ -1,61 +1,108 @@
-# INF601 Mini Project 4 — starter files
+# Mini Project 4 — Vuln Hub Penetration Test
 
-Mini Project 4 is an **agentic project**: you do real work driven by **Claude Code**,
-then write a professional, AI-assisted report about it. There are two tracks.
-**Pick the one that matches your concentration** (not sure? ask your instructor).
-
-| Track | Who | What you do | Start here |
-|---|---|---|---|
-| **A — Vuln Hub** | Cybersecurity | Pentest a deliberately vulnerable Flask app on your own machine, capture 6 flags, write a pentest report | [`track_a_vulnhub/README.md`](track_a_vulnhub/README.md) |
-| **B — Build Hub** | CS / other | Build a small data toolkit to a fixed spec, checked by hidden tests, write a technical report | [`track_b_buildhub/README.md`](track_b_buildhub/README.md) and [`SPEC.md`](track_b_buildhub/SPEC.md) |
-
-**Due Sunday 11 October 2026, 23:59 Central.** Submit the link to your own GitHub repo
-named `miniproject4YourFullName`. Do not submit this starter folder itself: copy what
-your track needs into your own repo.
-
-## 1. Say which track you did
-
-Your own repo's `README.md` must contain a line that says exactly
-
-```text
 Track: A
+
+An authorized penetration test of **Vuln Hub**, the deliberately
+vulnerable Flask application provided as the Track A target for
+INF601 Mini Project 4. All six planted vulnerabilities were found and
+exploited, with a unique flag captured and validated for each.
+
+**Author:** Chase Coble (FHSU username: `clcoble`)
+
+## Results
+
+| Finding | Severity | Flag |
+|---|---|---|
+| SQL Injection (login bypass + full DB dump) | Critical | `FLAG{sqli_e845a880e16c}` |
+| IDOR (private messages) | High | `FLAG{idor_407e97ee190c}` |
+| Broken Authorization (forged session cookie) | Critical | `FLAG{authz_fbd5823a9865}` |
+| Path Traversal (`/download`) | Critical | `FLAG{traversal_49e86abc62ee}` |
+| Sensitive Data Exposure (`/backups/`) | High | `FLAG{exposure_a92a0c94e6e1}` |
+| Stored XSS (guestbook) | Medium-High | `FLAG{xss_efa59c352162}` |
+
+```
+$ python check_flags.py submission.txt --username clcoble
+...
+6/6 flags valid for username clcoble
 ```
 
-or `Track: B`, on its own line. That line decides how your repo is graded.
+Full details — scope/authorization statement, methodology, a
+proof-of-concept for every finding, impact, and remediation advice —
+are in **[`REPORT.md`](REPORT.md)**.
 
-## 2. Get your seeds
+## Repo contents
 
-Your seeds come from your **FHSU username** (e.g. `jdoe`). They are not secret; they
-just make each student's flags and graded parameters different. From the root of this
-folder:
+- **`REPORT.md`** — the pentest report (the actual deliverable).
+- **`submission.txt`** — all six captured flags, one per line.
+- **`AGENTIC_LOG.md`** — a complete, timestamped, prompt-by-prompt log
+  of the agentic workflow with Claude Code: every action taken, every
+  finding, every decision, including dead ends (e.g. failed XSS
+  callback attempts) that were ruled out along the way. This is the
+  agentic-workflow evidence for this submission.
+- **`check_flags.py`** — the grader script provided with the
+  assignment; checks `submission.txt` against the flags derived from
+  `FLAG_SEED` (VALID/NOT VALID only, awards no points itself).
+- **`CLAUDE.md`** — the project-specific Claude Code configuration and
+  working-practices document used throughout this engagement
+  (environment constraints, workflow rules, and the running-log
+  practice that produced `AGENTIC_LOG.md`).
+- **`asst.md`** — the original assignment prompt, kept for reference.
 
-```bash
-python my_seeds.py jdoe
-```
+## Scope and ethics
 
-It prints `FLAG_SEED=...` (Track A) and `BUILD_SEED=...` (Track B), plus the line to
-set `FLAG_SEED` in bash/zsh and in Windows PowerShell. Use `python3` if `python` is
-not found on macOS/Linux.
+Vuln Hub was run locally, bound to `127.0.0.1:5000`, with
+`FLAG_SEED=clcoble`, and nothing else was tested. See `REPORT.md`
+Section 1 for the full signed-style authorization and scope statement.
 
-## 3. How credit works
+## AI Usage
 
-- **Track A:** each flag counts **only if your report's Proof-of-Concept shows the
-  exploit that produced it**. The flags also sit in plain files on your machine, so a
-  flag without its exploit earns nothing. Run Vuln Hub with your own `FLAG_SEED`. If
-  you captured flags while the app was on the **default seed** (red banner on every
-  page), **tell your instructor** in your report: those count only with a PoC.
-  `track_a_vulnhub/check_flags.py` tells you VALID / NOT VALID; it awards no points.
-- **Track B:** a hidden autograder scores your `buildhub` out of 60 using your
-  `BUILD_SEED`; the public tests in `starter/tests/public` are only a subset.
-- Both tracks: the report, the agentic-workflow evidence (transcript or summary of how
-  you directed Claude Code), an `## AI Usage` section in your README, and at least 5
-  commits. Any `.py` file you submit starts with the header comment
-  (`# INF601 - Advanced Programming in Python` / `# Your Name` / `# Mini Project 4`),
-  and your repo is named `miniproject4YourFullName`. You must be able to explain every
-  line at the Week 16 review.
+This project was done with Claude Code (Opus 5 / Sonnet 5) driving the
+hands-on recon and exploitation. I directed every step, read and
+confirmed each result before moving to the next one, and made the
+calls on what to pursue, when to push back, and when something needed
+re-checking. This wasn't "launch it and collect the output" — every
+request below, exploit, flag, and claim in the final report was
+something I looked at and signed off on before it went in.
 
-## Safety (Track A)
-
-Vuln Hub is **deliberately insecure**. Run it only on your own machine, bound to
-`127.0.0.1` (the default). Never expose it to a network or the internet, and test
-**nothing else** — only this app is in scope.
+- **Recon and exploitation:** Claude Code ran all HTTP-level recon and
+  exploitation (`curl`-driven route enumeration, SQL injection payload
+  testing and UNION-based data extraction, cookie forging, path
+  traversal probing, and the stored-XSS investigation) at my direction,
+  one vulnerability at a time. I reviewed each result — the route map,
+  the injection responses, the forged-cookie response, the traversal
+  reads, the XSS behavior — before deciding the next move, chose the
+  order of attack, and told it when to move on versus dig further.
+- **Methodology audit I asked for:** after all six flags were
+  captured, I specifically asked Claude to go back and verify that the
+  three flags found with help from a source-code read (obtained itself
+  through the path-traversal exploit) had PoCs that were genuinely
+  the exploit that produced them, rather than just effects of having
+  read the source. It re-tested each one, found that two were fully
+  independent of the source read, and that the third (stored XSS) had
+  a real but source-assisted discovery step — it disclosed that
+  distinction plainly in the report rather than glossing over it. I
+  read that audit and agreed with its conclusions before it went into
+  the report. See `AGENTIC_LOG.md`, Entry 9.
+- **Report drafting:** the first draft of `REPORT.md` was written by
+  Claude Code from the session's own findings. I read it in full and
+  confirmed the content before accepting it as the submission's report.
+- **Running log:** I had Claude Code maintain `AGENTIC_LOG.md` as a
+  running, append-only record of prompts/actions/findings/decisions
+  throughout, per a practice I added to `CLAUDE.md` partway through
+  the engagement — that file is the fullest record of the actual
+  back-and-forth, and I reviewed each entry as it was added.
+- **Classification review:** when Claude Code added CWE/OWASP
+  classifications to each finding, it explicitly refused to invent CVE
+  IDs (correctly — CVEs don't apply to a bespoke app like this) and
+  flagged one mapping, CWE-530 for the backup-exposure finding, as
+  asserted from memory but not independently re-verified against a
+  primary source. I checked it myself against cwe.mitre.org, confirmed
+  it was correct, and had both `REPORT.md` and this note updated
+  accordingly. This is one concrete instance of the same thing I did
+  throughout: reading and confirming the actual work rather than
+  taking any of it at face value.
+- **What I did myself:** directing the engagement end to end, reading
+  and confirming every finding, PoC, and claim before it was accepted
+  into the report (not only the CWE-530 check above — that one just
+  happens to be documented explicitly), reviewing and committing
+  everything, and all git history/commit messages.
