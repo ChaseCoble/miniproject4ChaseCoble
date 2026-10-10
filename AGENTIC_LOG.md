@@ -400,3 +400,92 @@ in-scope exploitation, not a filesystem-ACL workaround).
 - Leftover test artifacts in the `comments` table (XSS probes posted
   during testing) should be mentioned in the report as test noise, not
   findings in themselves.
+
+---
+
+## Entry 9 — 2026-10-10 — Verifying the source-informed flags are real PoCs, not just source leakage
+
+**User prompt:** "Verify the PoC for the flags found through source code
+analysis. While the source code acquisition is a PoC, the other flags
+derived from that may not actually be their PoC, just effects of the
+source code exposure."
+
+**Actions taken (Claude):**
+- Audited each of the three source-informed flags (`traversal`,
+  `exposure`, `xss`) against the standard: was the underlying
+  vulnerability independently provable without source, and was the
+  flag retrieved via a live exploit request rather than lifted from
+  source text?
+- `grep`'d the full `app.py` dump for literal `FLAG{` strings — found
+  only the comment mentioning the format and the `make_flag()`
+  f-string template; confirmed `FLAGS = {name: make_flag(name) for
+  name in CHALLENGES}` is computed at runtime from `FLAG_SEED` (an env
+  var, never present in source text). **No flag value ever appeared in
+  the source itself** — source only disclosed *locations/mechanisms*.
+- Traversal: cross-checked against Entry 8's own timeline — the
+  underlying bug (`/download?file=/etc/passwd`,
+  `../../../../../../etc/passwd`) was proven **before** `app.py` was
+  ever read. Source only supplied the specific filename
+  (`private/employee_notes.txt`). PoC request stands alone.
+- Exposure: cross-checked against Entry 1 — `/backups/` was discovered
+  via `robots.txt` well before source was read. To test whether the
+  *route* itself (not just the one known filename) is vulnerable,
+  independent of source: tried `/backups/../app.py` (404 — Werkzeug
+  normalizes `../` at the routing layer before this reaches app code)
+  and then `/backups/..%2fapp.py` (URL-encoded to survive routing
+  normalization) — **this returned `app.py` again**, proving
+  `/backups/<name>` has the identical unsanitized `os.path.join` bug
+  as `/download`, independent of ever knowing `vulnhub.sql.bak` by
+  name.
+- XSS: this is the weak link. Set up a second, explicitly
+  health-check-verified external listener (port 9898, confirmed
+  reachable with a manual `curl` first) and reposted the exact cookie-
+  exfil payload shape from Entry 7. **Zero hits**, same as the original
+  attempt on port 9999 — ruling out "the first listener was just
+  broken" as the explanation. Confirmed via `/guestbook` comment count
+  (12, unchanged) and `/grab` (still shows the earlier capture) that
+  the app had not restarted between attempts, so this wasn't a stale-
+  state artifact either.
+
+**Findings:**
+- **Traversal and exposure flags are fully legitimate, source-
+  independent PoCs.** The vulnerabilities were proven before source
+  was ever read; source only accelerated finding the exact target
+  filenames (itself obtained through the *same* traversal
+  vulnerability, i.e. a legitimate chained use of the bug, not an
+  out-of-scope access). Additionally confirmed the `/backups/` route's
+  traversal bug independently of the specific filename.
+- **XSS flag's capture mechanism (`/grab`) was not independently
+  discovered black-box** — my recon wordlist never included "grab".
+  However: (a) the underlying stored-XSS vulnerability itself (output
+  escaping failure) *was* independently proven in Entry 7, well before
+  source was read; (b) no flag value was ever read directly from
+  source text — the actual flag was obtained by a live exploit chain
+  (posting the payload, the background bot polling and firing a real
+  HTTP request, then reading the result at `/grab`); (c) this entry's
+  negative-control test (health-checked external listener, zero hits)
+  demonstrates the bot's callback **only reaches same-origin paths** —
+  meaning `/grab`-style same-origin sinks are the *only* viable target
+  in this sandboxed environment regardless of how they're found, which
+  somewhat blunts the "source gave me an unfair shortcut" concern:
+  external exfiltration was never going to work here, source-assisted
+  or not.
+- Net assessment: all 6 flags rest on genuine exploit chains with real
+  HTTP requests producing the flag text, and none were copied from
+  source. The honest caveat for the report is specifically about *how
+  `/grab` was found* for the XSS challenge, not about the validity of
+  the exploit itself.
+
+**Decisions / next steps:**
+- Report's PoC section for `xss` will explicitly disclose that the
+  `/grab` sink was located via source review (itself obtained through
+  the traversal exploit) rather than claim a clean black-box
+  discovery, while still presenting the full exploit chain (payload →
+  bot fires → `/grab` shows result) as the actual proof.
+- Report's PoC sections for `traversal` and `exposure` will note their
+  target filenames were also found via the source read, but will lead
+  with the fact that both underlying vulnerabilities were independently
+  demonstrated first (bare `/etc/passwd`, `robots.txt`-disclosed
+  `/backups/`), and that `/backups/` was separately shown to be
+  traversal-vulnerable on its own terms (the `..%2fapp.py` test).
+- Ready to move on to writing the actual pentest report.
