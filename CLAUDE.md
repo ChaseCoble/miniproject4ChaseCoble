@@ -46,6 +46,7 @@ identity model and standing rules, not anything specific to this project.
   system actually does, say so and suggest checking documentation or
   testing directly, rather than presenting a guess as fact.
 
+- **On confirmation of finding or decision, record** prompt user, and keep a running document of decisions made and findings between user and claude to show agentic workflow
 ## Security Posture
 
 - Treat this environment as deliberately least-privilege. If something

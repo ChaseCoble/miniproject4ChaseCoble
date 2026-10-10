@@ -1,0 +1,3 @@
+FLAG{idor_407e97ee190c}
+FLAG{sqli_e845a880e16c}
+FLAG{authz_fbd5823a9865}
