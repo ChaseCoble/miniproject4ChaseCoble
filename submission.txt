@@ -1,3 +1,6 @@
 FLAG{idor_407e97ee190c}
 FLAG{sqli_e845a880e16c}
 FLAG{authz_fbd5823a9865}
+FLAG{traversal_49e86abc62ee}
+FLAG{exposure_a92a0c94e6e1}
+FLAG{xss_efa59c352162}

